@@ -1,8 +1,18 @@
-# .gitignore
+# Node
 node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+backend/.env
+frontend/.env
 .env
 .env.local
+
+# Build output
 dist
 build
+
+# Others
 .DS_Store
-README.md
