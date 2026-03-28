@@ -2,12 +2,63 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 
+// const register = async (req, res) => {
+//   try {
+//     const { name, email, password } = req.body;
+
+//     if (!name || !email || !password) {
+//       return res.status(400).json({ message: "All fields are required" });
+//     }
+
+//     const [existing] = await pool.query(
+//       "SELECT id FROM users WHERE email = ?",
+//       [email]
+//     );
+
+//     if (existing.length > 0) {
+//       return res.status(400).json({ message: "Email already registered" });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+
+//     const [result] = await pool.query(
+//       "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+//       [name, email, hashedPassword]
+//     );
+
+//     const userId = result.insertId;
+
+//     const token = jwt.sign(
+//       { id: userId, email, role: "user" },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "1d" }
+//     );
+
+//     res.status(201).json({
+//       message: "User registered successfully",
+//       user: { id: userId, name, email, role: "user" },
+//       token,
+//     });
+//   } catch (err) {
+//     console.error("Register error:", err.message);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
+
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    // Default role
+    let role = "user";
+
+    // ✅ If logged-in user is admin → allow role override
+    if (req.user && req.user.role === "admin" && req.body.role) {
+      role = req.body.role;
+    }
+
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "All fields required" });
     }
 
     const [existing] = await pool.query(
@@ -16,31 +67,23 @@ const register = async (req, res) => {
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ message: "Email already registered" });
+      return res.status(400).json({ message: "Email already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await pool.query(
-      "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-      [name, email, hashedPassword]
-    );
-
-    const userId = result.insertId;
-
-    const token = jwt.sign(
-      { id: userId, email, role: "user" },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+      [name, email, hashedPassword, role]
     );
 
     res.status(201).json({
-      message: "User registered successfully",
-      user: { id: userId, name, email, role: "user" },
-      token,
+      message: "User created",
+      role,
+      id: result.insertId,
     });
   } catch (err) {
-    console.error("Register error:", err.message);
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -111,8 +154,23 @@ const getProfile = async (req, res) => {
   }
 };
 
+
+const deleteUser = async (req, res) => {
+  try {
+    const userId = req.user.id; // from JWT
+
+    await pool.query("DELETE FROM users WHERE id = ?", [userId]);
+
+    res.json({ message: "Your account deleted" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 module.exports = {
   register,
   login,
   getProfile,
+  deleteUser
 };

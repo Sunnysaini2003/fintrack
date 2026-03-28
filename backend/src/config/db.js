@@ -20,6 +20,6 @@ async function testConnection() {
   }
 }
 
-testConnection(); // 👈 IMPORTANT: this line runs the test when file loads
+testConnection();
 
 module.exports = pool;
