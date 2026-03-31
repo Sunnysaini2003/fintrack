@@ -13,15 +13,18 @@ const createTransaction = async (req, res) => {
       payment_method,
     } = req.body;
 
-    if (!type || !amount || !txn_date) {
+    if (!type || !amount) {
       return res
         .status(400)
-        .json({ message: "type, amount and txn_date are required" });
+        .json({ message: "type and amount are required" });
     }
 
-    if (!["income", "expense"].includes(type)) {
+    if (!["income", "expense","petrol", "savings"].includes(type)) {
       return res.status(400).json({ message: "Invalid transaction type" });
     }
+
+    
+    const txnDate = txn_date || new Date();
 
     const [result] = await pool.query(
       `INSERT INTO transactions 
@@ -33,7 +36,7 @@ const createTransaction = async (req, res) => {
         type,
         amount,
         description || null,
-        txn_date,
+        txnDate,
         payment_method || "other",
       ]
     );
@@ -52,32 +55,38 @@ const createTransaction = async (req, res) => {
 const getTransactions = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { from, to, type, category_id } = req.query;
+
+    const { filter, type, from, to } = req.query;
 
     let query = "SELECT * FROM transactions WHERE user_id = ?";
     const params = [userId];
 
+    // 🔹 Type filter
     if (type && ["income", "expense"].includes(type)) {
       query += " AND type = ?";
       params.push(type);
     }
 
-    if (category_id) {
-      query += " AND category_id = ?";
-      params.push(category_id);
+    // 🔹 Date filters
+    if (filter === "today") {
+      query += " AND DATE(txn_date) = CURDATE()";
     }
 
-    if (from) {
-      query += " AND txn_date >= ?";
-      params.push(from);
+    if (filter === "last7days") {
+      query += " AND txn_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
     }
 
-    if (to) {
-      query += " AND txn_date <= ?";
-      params.push(to);
+    if (filter === "month") {
+      query += " AND MONTH(txn_date) = MONTH(CURDATE()) AND YEAR(txn_date) = YEAR(CURDATE())";
     }
 
-    query += " ORDER BY txn_date DESC, created_at DESC";
+    // 🔹 Custom range
+    if (from && to) {
+      query += " AND txn_date BETWEEN ? AND ?";
+      params.push(from, to);
+    }
+
+    query += " ORDER BY txn_date DESC";
 
     const [rows] = await pool.query(query, params);
 
