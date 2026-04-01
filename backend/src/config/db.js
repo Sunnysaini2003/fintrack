@@ -11,15 +11,15 @@ const pool = mysql.createPool({
 });
 
 // Optional: small test function to verify
-async function testConnection() {
-  try {
-    const [rows] = await pool.query("SELECT 1 AS result");
-    console.log("MySQL connected ✅", rows[0]);
-  } catch (err) {
-    console.error("MySQL connection error ❌", err.message);
-  }
-}
+// async function testConnection() {
+//   try {
+//     const [rows] = await pool.query("SELECT 1 AS result");
+//     console.log("MySQL connected ✅", rows[0]);
+//   } catch (err) {
+//     console.error("MySQL connection error ❌", err.message);
+//   }
+// }
 
-testConnection();
+// testConnection();
 
 module.exports = pool;
