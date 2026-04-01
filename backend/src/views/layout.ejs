@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FinTrack Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      display: flex;
+      background: #f1f5f9;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      height: 100vh;
+      background: #0f172a;
+      color: white;
+      padding: 20px;
+      position: fixed;
+    }
+
+    .sidebar h2 {
+      margin-bottom: 20px;
+      color: #38bdf8;
+    }
+
+    .sidebar a {
+      display: block;
+      color: #94a3b8;
+      padding: 10px;
+      margin: 5px 0;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+
+    .sidebar a:hover {
+      background: #1e293b;
+      color: white;
+    }
+    .sidebar a i {
+  margin-right: 10px;
+}
+
+    /* Main */
+    .main {
+      margin-left: 240px;
+      width: 100%;
+    }
+
+    /* Topbar */
+    .topbar {
+      height: 60px;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+
+    .topbar h3 {
+      font-size: 18px;
+    }
+
+    .topbar a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+
+    /* Content */
+    .content {
+      padding: 20px;
+    }
+
+    /* Cards */
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    tr:hover {
+      background: #f1f5f9;
+    }
+
+    /* Badges */
+    .income {
+      color: #16a34a;
+      font-weight: 600;
+    }
+
+    .expense {
+      color: #dc2626;
+      font-weight: 600;
+    }
+
+    /* Button */
+    .btn-delete {
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-delete:hover {
+      background: #b91c1c;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <h2>FinTrack</h2>
+
+  <a href="/admin">
+    <i class="fas fa-chart-line"></i> Dashboard
+  </a>
+
+  <a href="/admin/users">
+    <i class="fas fa-users"></i> Users
+  </a>
+
+  <a href="/admin/transactions">
+    <i class="fas fa-wallet"></i> Transactions
+  </a>
+
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <h3>Admin Dashboard</h3>
+      <a href="/admin/logout">
+    <i class="fas fa-sign-out-alt"></i> Logout
+  </a>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <%- body %>
+  </div>
+
+</div>
+
+</body>
+</html>
