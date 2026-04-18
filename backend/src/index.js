@@ -1,69 +1,103 @@
+// ================= IMPORTS =================
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const pool = require("./config/db");
 const session = require("express-session");
 const expressLayouts = require("express-ejs-layouts");
-dotenv.config();
+
+const pool = require("./config/db");
+
+// Routes
 const authRoutes = require("./routes/authRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
-const app = express(); 
-app.use(cors());
+
+// ================= CONFIG =================
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// ================= MIDDLEWARE =================
+
+// Core middleware
+app.use(
+  cors({
+    origin: "http://localhost:5000",
+    credentials: true,
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Session middleware
 app.use(
   session({
     secret: "fintrack_secret",
     resave: false,
     saveUninitialized: false,
-
     cookie: {
-      maxAge: 1000 * 60 * 60, 
+      maxAge: 1000 * 60 * 60, // 1 hour
       httpOnly: true,
+      secure: false,
+      sameSite: "lax",
     },
   })
 );
+// app.use((req, res, next) => {
+//   console.log("SESSION:", req.session);
+//   next();
+// });
 
+
+// Auto extend session
 app.use((req, res, next) => {
   if (req.session.admin) {
-    req.session.touch(); 
+    req.session.touch();
   }
   next();
 });
 
+// Make session available in EJS
 app.use((req, res, next) => {
   res.locals.session = req.session;
   next();
 });
 
+// ================= VIEW ENGINE =================
 app.set("view engine", "ejs");
 app.set("views", "./src/views");
+
 app.use(expressLayouts);
 app.set("layout", "layout");
 
-// app.use(express.static("public"));
+// Static files
+app.use(express.static("public"));
 
+// ================= ROUTES =================
+
+// Health routes
 app.get("/", (req, res) => {
   res.json({ message: "FinTrack API is running ✅" });
 });
 
 app.get("/db", (req, res) => {
-  res.json({ message: "Connected" });
+  res.json({ message: "DB Connected ✅" });
 });
 
+// API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
-app.use("/admin", adminRoutes); 
 
-const PORT = process.env.PORT || 5000;
+// Admin panel
+app.use("/admin", adminRoutes);
 
+// ================= SERVER =================
 app.listen(PORT, () => {
-  console.log(`FinTrack backend running on port ${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
-// ================= DB CHECK =================
-
+// ================= DATABASE CHECK =================
 (async () => {
   try {
     await pool.query("SELECT 1");
@@ -73,4 +107,6 @@ app.listen(PORT, () => {
   }
 })();
 
-console.log("Auth routes loaded");
+console.log("Auth Routes Loaded");
+
+

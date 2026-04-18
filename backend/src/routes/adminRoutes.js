@@ -1,12 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt");
-const pool = require("../config/db"); // ✅ ADD THIS
+const pool = require("../config/db");
 
 // ================= LOGIN =================
 
 // Show login page
 router.get("/login", (req, res) => {
+  if (req.session.admin) {
+    return res.redirect("/admin/dashboard");
+  }
+
   res.render("admin-login", { layout: false });
 });
 
@@ -16,7 +20,7 @@ router.post("/login", async (req, res) => {
 
   const [users] = await pool.query(
     "SELECT * FROM users WHERE email = ? AND role = 'admin'",
-    [email]
+    [email],
   );
 
   if (users.length === 0) {
@@ -37,37 +41,46 @@ router.post("/login", async (req, res) => {
     email: admin.email,
   };
 
-  res.redirect("/admin");
+  res.redirect("/admin/dashboard"); 
 });
-
-// ================= PROTECTION =================
 
 const adminAuth = require("../middleware/adminAuth");
 
 // Protect everything AFTER login
 router.use(adminAuth);
 
-// ================= DASHBOARD =================
+router.get("/", (req, res) => {
+  if (req.session.admin) {
+    return res.redirect("/admin/dashboard");
+  }
 
-router.get("/", async (req, res) => {
-  const [[userCount]] = await pool.query("SELECT COUNT(*) as count FROM users");
-  const [[txnCount]] = await pool.query("SELECT COUNT(*) as count FROM transactions");
+  return res.redirect("/admin/login");
+});
+
+router.get("/dashboard", async (req, res) => {
+  console.log("DASHBOARD ROUTE HIT");
+  const [[userCount]] = await pool.query(
+    "SELECT COUNT(*) as count FROM users"
+  );
+
+  const [[txnCount]] = await pool.query(
+    "SELECT COUNT(*) as count FROM transactions"
+  );
 
   res.render("dashboard", {
     users: userCount.count,
     transactions: txnCount.count,
+    title: "Dashboard"
   });
 });
-
 
 router.get("/users", async (req, res) => {
   try {
     const [users] = await pool.query(
-      "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC"
+      "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC",
     );
 
     res.render("users", { users });
-
   } catch (err) {
     console.error("Users fetch error:", err.message);
     res.send("Error loading users");
@@ -81,13 +94,11 @@ router.post("/users/delete/:id", async (req, res) => {
     await pool.query("DELETE FROM users WHERE id = ?", [userId]);
 
     res.redirect("/admin/users");
-
   } catch (err) {
     console.error("Delete user error:", err.message);
     res.send("Error deleting user");
   }
 });
-
 
 router.get("/transactions", async (req, res) => {
   try {
@@ -99,7 +110,6 @@ router.get("/transactions", async (req, res) => {
     `);
 
     res.render("transactions", { transactions });
-
   } catch (err) {
     console.error("Transactions fetch error:", err.message);
     res.send("Error loading transactions");
@@ -109,6 +119,40 @@ router.get("/transactions", async (req, res) => {
 router.post("/transactions/delete/:id", async (req, res) => {
   await pool.query("DELETE FROM transactions WHERE id = ?", [req.params.id]);
   res.redirect("/admin/transactions");
+});
+
+
+// ================= Analytics =================
+router.get("/analytics/summary", async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT type, SUM(amount) as total
+    FROM transactions
+    GROUP BY type
+  `);
+
+  res.json(rows);
+});
+
+router.get("/analytics/categories", async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT category_id, SUM(amount) as total
+    FROM transactions
+    WHERE type = 'expense'
+    GROUP BY category_id
+  `);
+
+  res.json(rows);
+});
+router.get("/analytics/monthly", async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT DATE_FORMAT(txn_date, '%Y-%m') as month,
+           SUM(amount) as total
+    FROM transactions
+    GROUP BY month
+    ORDER BY month
+  `);
+
+  res.json(rows);
 });
 
 
