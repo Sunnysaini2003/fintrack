@@ -36,12 +36,23 @@ router.post("/login", async (req, res) => {
   }
 
   // ✅ Save session
-  req.session.admin = {
-    id: admin.id,
-    email: admin.email,
-  };
+req.session.admin = {
+  id: admin.id,
+  email: admin.email,
+};
 
-  res.redirect("/admin/dashboard"); 
+req.session.save((err) => {
+
+  if (err) {
+    console.error("SESSION SAVE ERROR:", err);
+
+    return res.redirect("/admin/login");
+  }
+
+  console.log("✅ Session Saved");
+
+  res.redirect("/admin/dashboard");
+});
 });
 
 const adminAuth = require("../middleware/adminAuth");
@@ -159,8 +170,17 @@ router.get("/analytics/monthly", async (req, res) => {
 // ================= LOGOUT =================
 
 router.get("/logout", (req, res) => {
-  req.session.destroy();
-  res.redirect("/admin/login");
+
+  req.session.destroy((err) => {
+
+    if (err) {
+      return res.redirect("/admin/dashboard");
+    }
+
+    res.clearCookie("fintrack.sid");
+
+    res.redirect("/admin/login");
+  });
 });
 
 module.exports = router;

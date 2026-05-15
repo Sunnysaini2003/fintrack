@@ -47,44 +47,116 @@ const pool = require("../config/db");
 
 const register = async (req, res) => {
   try {
+
     const { name, email, password } = req.body;
 
     // Default role
     let role = "user";
 
-    // ✅ If logged-in user is admin → allow role override
-    if (req.user && req.user.role === "admin" && req.body.role) {
+    // Admin can override role
+    if (
+      req.user &&
+      req.user.role === "admin" &&
+      req.body.role
+    ) {
       role = req.body.role;
     }
 
+    // Validation
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields required" });
+
+      await pool.query(
+        "INSERT INTO logs (action, email, ip_address) VALUES (?, ?, ?)",
+        [
+          "REGISTER_FAILED",
+          email || "NO_EMAIL",
+          req.ip,
+        ]
+      );
+
+      return res.status(400).json({
+        message: "All fields required",
+      });
     }
 
+    // Check existing email
     const [existing] = await pool.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ message: "Email already exists" });
+
+      await pool.query(
+        "INSERT INTO logs (action, email, ip_address) VALUES (?, ?, ?)",
+        [
+          "REGISTER_DUPLICATE_EMAIL",
+          email,
+          req.ip,
+        ]
+      );
+
+      return res.status(400).json({
+        message: "Email already exists",
+      });
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Create user
     const [result] = await pool.query(
       "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
       [name, email, hashedPassword, role]
     );
 
+    // Store log
+    let ip = req.ip;
+    ip = ip.replace(/^.*:/, ''); 
+    await pool.query(
+      "INSERT INTO logs (user_id, action, email, ip_address) VALUES (?, ?, ?, ?)",
+      [
+        result.insertId,
+        "REGISTER_SUCCESS",
+        email,
+        req.ip,
+      ]
+    );
+
+    console.log("✅ User Registered");
+
+    console.log({
+      id: result.insertId,
+      name,
+      email,
+      role,
+      ip: req.ip,
+      time: new Date(),
+    });
+
     res.status(201).json({
-      message: "User created",
+      message: "User created successfully",
       role,
       id: result.insertId,
     });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+
+    console.error("REGISTER ERROR:", err);
+
+    // Error log
+    await pool.query(
+      "INSERT INTO logs (action, email, ip_address) VALUES (?, ?, ?)",
+      [
+        "REGISTER_SERVER_ERROR",
+        req.body.email || "UNKNOWN",
+        req.ip,
+      ]
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 

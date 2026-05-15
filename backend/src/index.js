@@ -25,36 +25,54 @@ app.use(
   cors({
     origin: "http://localhost:5173",
     credentials: true,
-  })
-);
+  }));
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Session middleware
+app.set("trust proxy", 1);
+
 app.use(
   session({
-    secret: "fintrack_secret",
+    name: "fintrack.sid",
+
+    secret: process.env.SESSION_SECRET || "fintrack_secret",
+
     resave: false,
+
     saveUninitialized: false,
+
+    rolling: true,
+
     cookie: {
-      maxAge: 1000 * 60 * 60, // 1 hour
+      maxAge: 1000 * 60 * 60 * 24, // 24 hours
+
       httpOnly: true,
+
       secure: false,
+
       sameSite: "lax",
     },
   })
 );
-// app.use((req, res, next) => {
-//   console.log("SESSION:", req.session);
-//   next();
-// });
 
+// debugging middleware
 
-// Auto extend session
 app.use((req, res, next) => {
-  if (req.session.admin) {
-    req.session.touch();
-  }
+
+  console.log("━━━━━━━━━━━━━━━━━━━");
+
+  console.log("SESSION ID:", req.sessionID);
+
+  console.log("SESSION DATA:", req.session);
+
+  console.log("ADMIN:", req.session.admin);
+
+  console.log("URL:", req.originalUrl);
+
+  console.log("━━━━━━━━━━━━━━━━━━━");
+
   next();
 });
 

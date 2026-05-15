@@ -19,6 +19,25 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+const adminAuth = (req, res, next) => {
+
+  console.log("AUTH CHECK:", req.session.admin);
+
+  if (!req.session.admin) {
+
+    console.log("❌ Not logged in → redirect");
+
+    req.session.redirectTo = req.originalUrl;
+
+    return res.redirect("/admin/login");
+  }
+
+  console.log("✅ Allowed");
+
+  next();
+};
+
 
 module.exports = authMiddleware;
+module.exports = adminAuth;
 
