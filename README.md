@@ -1,4 +1,4 @@
-# 📊 FinTrack V2
+# 📊 FinTrack Expense Manager
 
 FinTrack is a full-stack personal finance and expense management application built using Node.js, Express, MySQL, React, and JWT authentication.
 
