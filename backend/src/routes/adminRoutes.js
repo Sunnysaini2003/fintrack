@@ -36,23 +36,109 @@ router.post("/login", async (req, res) => {
   }
 
   // ✅ Save session
-req.session.admin = {
-  id: admin.id,
-  email: admin.email,
-};
+  req.session.admin = {
+    id: admin.id,
+    email: admin.email,
+  };
 
-req.session.save((err) => {
+  req.session.save((err) => {
 
-  if (err) {
-    console.error("SESSION SAVE ERROR:", err);
+    if (err) {
+      console.error("SESSION SAVE ERROR:", err);
 
-    return res.redirect("/admin/login");
+      return res.redirect("/admin/login");
+    }
+
+    console.log("✅ Session Saved");
+
+    res.redirect("/admin/dashboard");
+  });
+});
+
+// ================= REGISTER ADMIN =================
+
+// Show register page
+router.get("/register", (req, res) => {
+
+  res.render("admin-register", {
+    layout: false,
+  });
+
+});
+
+// Handle admin registration
+router.post("/register", async (req, res) => {
+
+  try {
+
+    const {
+      name,
+      email,
+      password,
+    } = req.body;
+
+    // Validation
+    if (
+      !name ||
+      !email ||
+      !password
+    ) {
+      return res.send(
+        "All fields required"
+      );
+    }
+
+    // Check existing admin
+    const [existing] = await pool.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
+
+    if (existing.length > 0) {
+
+      return res.send(
+        "Email already exists"
+      );
+    }
+
+    // Hash password
+    const hashedPassword =
+      await bcrypt.hash(password, 10);
+
+    // Create admin
+    await pool.query(
+      `
+      INSERT INTO users
+      (name, email, password, role)
+      VALUES (?, ?, ?, ?)
+      `,
+      [
+        name,
+        email,
+        hashedPassword,
+        "admin",
+      ]
+    );
+
+    console.log(
+      "✅ Admin Created:",
+      email
+    );
+
+    res.redirect("/admin/login");
+
+  } catch (err) {
+
+    console.error(
+      "ADMIN REGISTER ERROR:",
+      err
+    );
+
+    res.send(
+      "Error creating admin"
+    );
   }
 
-  console.log("✅ Session Saved");
-
-  res.redirect("/admin/dashboard");
-});
 });
 
 const adminAuth = require("../middleware/adminAuth");

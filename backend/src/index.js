@@ -11,6 +11,8 @@ const pool = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 // ================= CONFIG =================
 dotenv.config();
@@ -106,6 +108,9 @@ app.get("/db", (req, res) => {
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/users",require("./routes/userRoutes"));
 
 // Admin panel
 app.use("/admin", adminRoutes);
@@ -114,7 +119,7 @@ app.use("/admin", adminRoutes);
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
-
+  
 // ================= DATABASE CHECK =================
 (async () => {
   try {

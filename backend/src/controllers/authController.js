@@ -1,59 +1,53 @@
+// ======================================================
+// AUTH CONTROLLER
+// Handles:
+// - Register
+// - Login
+// - Get Profile
+// - Delete Account
+// ======================================================
+
+// ================= IMPORTS =================
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+
 const pool = require("../config/db");
 
-// const register = async (req, res) => {
-//   try {
-//     const { name, email, password } = req.body;
+// ======================================================
+// HELPER → Generate JWT Token
+// ======================================================
 
-//     if (!name || !email || !password) {
-//       return res.status(400).json({ message: "All fields are required" });
-//     }
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    },
 
-//     const [existing] = await pool.query(
-//       "SELECT id FROM users WHERE email = ?",
-//       [email]
-//     );
+    process.env.JWT_SECRET,
 
-//     if (existing.length > 0) {
-//       return res.status(400).json({ message: "Email already registered" });
-//     }
+    {
+      expiresIn: "7d",
+    }
+  );
+};
 
-//     const hashedPassword = await bcrypt.hash(password, 10);
-
-//     const [result] = await pool.query(
-//       "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-//       [name, email, hashedPassword]
-//     );
-
-//     const userId = result.insertId;
-
-//     const token = jwt.sign(
-//       { id: userId, email, role: "user" },
-//       process.env.JWT_SECRET,
-//       { expiresIn: "1d" }
-//     );
-
-//     res.status(201).json({
-//       message: "User registered successfully",
-//       user: { id: userId, name, email, role: "user" },
-//       token,
-//     });
-//   } catch (err) {
-//     console.error("Register error:", err.message);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
+// ======================================================
+// REGISTER USER
+// ======================================================
 
 const register = async (req, res) => {
+
   try {
 
+    // ================= GET DATA =================
     const { name, email, password } = req.body;
 
-    // Default role
+    // Default role for normal users
     let role = "user";
 
-    // Admin can override role
+    // Allow admins to create custom roles
     if (
       req.user &&
       req.user.role === "admin" &&
@@ -62,11 +56,16 @@ const register = async (req, res) => {
       role = req.body.role;
     }
 
-    // Validation
+    // ================= VALIDATION =================
     if (!name || !email || !password) {
 
+      // Log failed attempt
       await pool.query(
-        "INSERT INTO logs (action, email, ip_address) VALUES (?, ?, ?)",
+        `
+        INSERT INTO logs
+        (action, email, ip_address)
+        VALUES (?, ?, ?)
+        `,
         [
           "REGISTER_FAILED",
           email || "NO_EMAIL",
@@ -75,11 +74,11 @@ const register = async (req, res) => {
       );
 
       return res.status(400).json({
-        message: "All fields required",
+        message: "All fields are required",
       });
     }
 
-    // Check existing email
+    // ================= CHECK EXISTING USER =================
     const [existing] = await pool.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
@@ -87,8 +86,13 @@ const register = async (req, res) => {
 
     if (existing.length > 0) {
 
+      // Store duplicate email log
       await pool.query(
-        "INSERT INTO logs (action, email, ip_address) VALUES (?, ?, ?)",
+        `
+        INSERT INTO logs
+        (action, email, ip_address)
+        VALUES (?, ?, ?)
+        `,
         [
           "REGISTER_DUPLICATE_EMAIL",
           email,
@@ -101,20 +105,38 @@ const register = async (req, res) => {
       });
     }
 
-    // Hash password
+    // ================= HASH PASSWORD =================
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // ================= CREATE USER =================
     const [result] = await pool.query(
-      "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-      [name, email, hashedPassword, role]
+      `
+      INSERT INTO users
+      (name, email, password, role)
+      VALUES (?, ?, ?, ?)
+      `,
+      [
+        name,
+        email,
+        hashedPassword,
+        role,
+      ]
     );
 
-    // Store log
-    let ip = req.ip;
-    ip = ip.replace(/^.*:/, ''); 
+    // ================= GENERATE TOKEN =================
+    const token = generateToken({
+      id: result.insertId,
+      email,
+      role,
+    });
+
+    // ================= STORE SUCCESS LOG =================
     await pool.query(
-      "INSERT INTO logs (user_id, action, email, ip_address) VALUES (?, ?, ?, ?)",
+      `
+      INSERT INTO logs
+      (user_id, action, email, ip_address)
+      VALUES (?, ?, ?, ?)
+      `,
       [
         result.insertId,
         "REGISTER_SUCCESS",
@@ -123,7 +145,8 @@ const register = async (req, res) => {
       ]
     );
 
-    console.log("✅ User Registered");
+    // ================= TERMINAL LOG =================
+    console.log("✅ New User Registered");
 
     console.log({
       id: result.insertId,
@@ -134,19 +157,31 @@ const register = async (req, res) => {
       time: new Date(),
     });
 
+    // ================= RESPONSE =================
     res.status(201).json({
-      message: "User created successfully",
-      role,
-      id: result.insertId,
+      message: "User registered successfully",
+
+      token,
+
+      user: {
+        id: result.insertId,
+        name,
+        email,
+        role,
+      },
     });
 
   } catch (err) {
 
     console.error("REGISTER ERROR:", err);
 
-    // Error log
+    // Store server error log
     await pool.query(
-      "INSERT INTO logs (action, email, ip_address) VALUES (?, ?, ?)",
+      `
+      INSERT INTO logs
+      (action, email, ip_address)
+      VALUES (?, ?, ?)
+      `,
       [
         "REGISTER_SERVER_ERROR",
         req.body.email || "UNKNOWN",
@@ -160,89 +195,240 @@ const register = async (req, res) => {
   }
 };
 
+// ======================================================
+// LOGIN USER
+// ======================================================
+
 const login = async (req, res) => {
+
   try {
+
+    // ================= GET DATA =================
     const { email, password } = req.body;
 
+    // ================= VALIDATION =================
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required" });
+
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
     }
 
+    // ================= FIND USER =================
     const [rows] = await pool.query(
       "SELECT * FROM users WHERE email = ?",
       [email]
     );
 
+    // User not found
     if (rows.length === 0) {
-      return res.status(400).json({ message: "Invalid credentials" });
+
+      // Log failed login
+      await pool.query(
+        `
+        INSERT INTO logs
+        (action, email, ip_address)
+        VALUES (?, ?, ?)
+        `,
+        [
+          "LOGIN_FAILED_USER_NOT_FOUND",
+          email,
+          req.ip,
+        ]
+      );
+
+      return res.status(400).json({
+        message: "Invalid credentials",
+      });
     }
 
     const user = rows[0];
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+    // ================= PASSWORD CHECK =================
+    const isMatch = await bcrypt.compare(
+      password,
+      user.password
     );
 
+    // Wrong password
+    if (!isMatch) {
+
+      await pool.query(
+        `
+        INSERT INTO logs
+        (user_id, action, email, ip_address)
+        VALUES (?, ?, ?, ?)
+        `,
+        [
+          user.id,
+          "LOGIN_FAILED_WRONG_PASSWORD",
+          email,
+          req.ip,
+        ]
+      );
+
+      return res.status(400).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    // ================= GENERATE JWT =================
+    const token = generateToken(user);
+
+    // ================= STORE LOGIN LOG =================
+    await pool.query(
+      `
+      INSERT INTO logs
+      (user_id, action, email, ip_address)
+      VALUES (?, ?, ?, ?)
+      `,
+      [
+        user.id,
+        "LOGIN_SUCCESS",
+        email,
+        req.ip,
+      ]
+    );
+
+    // ================= TERMINAL LOG =================
+    console.log("✅ User Logged In");
+
+    console.log({
+      id: user.id,
+      email,
+      role: user.role,
+      ip: req.ip,
+      time: new Date(),
+    });
+
+    // ================= RESPONSE =================
     res.json({
       message: "Login successful",
+
+      token,
+
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
       },
-      token,
     });
+
   } catch (err) {
-    console.error("Login error:", err.message);
-    res.status(500).json({ message: "Server error" });
+
+    console.error("LOGIN ERROR:", err.message);
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
+// ======================================================
+// GET CURRENT USER PROFILE
+// ======================================================
+
 const getProfile = async (req, res) => {
+
   try {
+
     const [rows] = await pool.query(
-      "SELECT id, name, email, role, created_at FROM users WHERE id = ?",
+      `
+      SELECT
+        id,
+        name,
+        email,
+        role,
+        created_at
+      FROM users
+      WHERE id = ?
+      `,
       [req.user.id]
     );
 
+    // User not found
     if (rows.length === 0) {
-      return res.status(404).json({ message: "User not found" });
+
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
 
-    res.json({ user: rows[0] });
+    // Send user data
+    res.json({
+      user: rows[0],
+    });
+
   } catch (err) {
-    console.error("Get profile error:", err.message);
-    res.status(500).json({ message: "Server error" });
+
+    console.error(
+      "GET PROFILE ERROR:",
+      err.message
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
+// ======================================================
+// DELETE ACCOUNT
+// ======================================================
 
 const deleteUser = async (req, res) => {
+
   try {
-    const userId = req.user.id; // from JWT
 
-    await pool.query("DELETE FROM users WHERE id = ?", [userId]);
+    const userId = req.user.id;
 
-    res.json({ message: "Your account deleted" });
+    // Delete user
+    await pool.query(
+      "DELETE FROM users WHERE id = ?",
+      [userId]
+    );
+
+    // Store delete log
+    await pool.query(
+      `
+      INSERT INTO logs
+      (user_id, action, ip_address)
+      VALUES (?, ?, ?)
+      `,
+      [
+        userId,
+        "ACCOUNT_DELETED",
+        req.ip,
+      ]
+    );
+
+    console.log("❌ Account Deleted:", userId);
+
+    res.json({
+      message: "Your account has been deleted",
+    });
+
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+
+    console.error(
+      "DELETE USER ERROR:",
+      err.message
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
+// ======================================================
+// EXPORTS
+// ======================================================
 
 module.exports = {
   register,
   login,
   getProfile,
-  deleteUser
+  deleteUser,
 };

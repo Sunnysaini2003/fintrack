@@ -13,17 +13,22 @@ const createTransaction = async (req, res) => {
       payment_method,
     } = req.body;
 
-    if (!type || !amount) {
+    if (
+      !type ||
+      !amount ||
+      isNaN(amount) ||
+      Number(amount) <= 0
+    ) {
       return res
         .status(400)
         .json({ message: "type and amount are required" });
     }
 
-    if (!["income", "expense","petrol", "savings"].includes(type)) {
+    if (!["income", "expense"].includes(type)) {
       return res.status(400).json({ message: "Invalid transaction type" });
     }
 
-    
+
     const txnDate = txn_date || new Date();
 
     const [result] = await pool.query(
