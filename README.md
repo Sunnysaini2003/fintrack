@@ -47,7 +47,7 @@ FinTrack is a full-stack personal finance and expense management application bui
 
 ### Frontend
 ```bash
-cd backend
+cd frontend
 npm install
 npm run dev
 ```
